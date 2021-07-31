@@ -1,19 +1,24 @@
 import youtube_dl
-import os
-import threading
+import os, subprocess
+import threading, queue
 import logging
-import json
+import json, time
+from multiprocessing import Value
 logger = logging.getLogger("RaspberryCast")
 volume = 0
 
+status = Value("u","0")
+omx_cmd = queue.Queue()
+video_queue = queue.Queue()
 
 def launchvideo(url, config, sub=False):
     setState("2")
 
-    os.system("echo -n q > /tmp/cmd &")  # Kill previous instance of OMX
+    omx_cmd.queue.clear()
+    omx_cmd.put("q")  # Kill previous instance of OMX
 
     if config["new_log"]:
-        os.system("sudo fbi -T 1 -a --noverbose images/processing.jpg")
+        subprocess.Popen(["sudo", "fbi", "-T", "1", "-a", "--noverbose", "images/processing.jpg"])
 
     logger.info('Extracting source video URL...')
     out = return_full_url(url, sub=sub, slow_mode=config["slow_mode"])
@@ -25,7 +30,7 @@ def launchvideo(url, config, sub=False):
                         new_log=config["new_log"]))
     thread.start()
 
-    os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+    #os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
 
 
 def queuevideo(url, config, onlyqueue=False):
@@ -42,12 +47,10 @@ adding to queue.')
             kwargs=dict(width=config["width"], height=config["height"],
                         new_log=config["new_log"]))
         thread.start()
-        os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+        #os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
     else:
         if out is not None:
-            with open('video.queue', 'a') as f:
-                f.write(out+'\n')
-
+            video_queue.put(out)
 
 def return_full_url(url, sub=False, slow_mode=False):
     logger.debug("Parsing source url for "+url+" with subs :"+str(sub))
@@ -151,51 +154,52 @@ def playWithOMX(url, sub, width="", height="", new_log=False):
 
     setState("1")
     if sub:
-        os.system(
-            "omxplayer -b -r -o both '" + url + "'" + resolution +
-            " --vol " + str(volume) +
-            " --subtitles subtitle.srt < /tmp/cmd"
+        proc=subprocess.Popen([
+            "omxplayer", "-b", "-r", "-o", "both", url, resolution,
+            "--vol", str(volume), "--subtitles", "subtitle.srt"], stdin = subprocess.PIPE
         )
+        while not proc.poll() == 0:
+            if not omx_cmd.empty():
+                proc.stdin.write(omx_cmd.get(False).encode("utf-8"))
+                proc.stdin.flush()
+            time.sleep(0.1)
     elif url is None:
         pass
     else:
-        os.system(
-            "omxplayer -b -r -o both '" + url + "' " + resolution + " --vol " +
-            str(volume) + " < /tmp/cmd"
-        )
+        proc=subprocess.Popen([
+            "omxplayer", "-b", "-r", "-o", "both", url, resolution, "--vol", str(volume)
+        ],stdin=subprocess.PIPE)
+        while not proc.poll() == 0:
+            if not omx_cmd.empty():
+                proc.stdin.write(omx_cmd.get(False).encode("utf-8"))
+                proc.stdin.flush()
+            time.sleep(0.1)
 
     if getState() != "2":  # In case we are again in the launchvideo function
         setState("0")
-        with open('video.queue', 'r') as f:
-            # Check if there is videos in queue
-            first_line = f.readline().replace('\n', '')
-            if first_line != "":
-                logger.info("Starting next video in playlist.")
-                with open('video.queue', 'r') as fin:
-                    data = fin.read().splitlines(True)
-                with open('video.queue', 'w') as fout:
-                    fout.writelines(data[1:])
-                thread = threading.Thread(
-                    target=playWithOMX, args=(first_line, False,),
-                        kwargs=dict(width=width, height=height,
-                                    new_log=new_log),
-                )
-                thread.start()
-                os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
-            else:
-                logger.info("Playlist empty, skipping.")
-                if new_log:
-                    os.system("sudo fbi -T 1 -a --noverbose images/ready.jpg")
+        # Check if there is videos in queue
+        first_line = video_queue.get()
+        logger.info("Starting next video in playlist.")
+        thread = threading.Thread(
+        target=playWithOMX, args=(first_line, False,),
+                kwargs=dict(width=width, height=height,
+                            new_log=new_log),
+        )
+        thread.start()
+        #os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+    else:
+        logger.info("Playlist empty, skipping.")
+        if new_log:
+            subprocess.Popen(["sudo", "fbi", "-T", "1", "-a", "--noverbose", "images/ready.jpg"])
 
 
 def setState(state):
     # Write to file so it can be accessed from everywhere
-    os.system("echo "+state+" > state.tmp")
+    status.value=state
 
 
 def getState():
-    with open('state.tmp', 'r') as f:
-        return f.read().replace('\n', '')
+    return status.value
 
 
 def setVolume(vol):

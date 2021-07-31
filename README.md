@@ -15,7 +15,7 @@ You can also cast playlists from Youtube or Soundcloud.
 ## How to install (Raspberry Pi side)
 
 ```
-wget https://raw.githubusercontent.com/vincelwt/RaspberryCast/master/setup.sh && sudo sh setup.sh
+wget https://raw.githubusercontent.com/kazuto28/RaspberryCast/master/setup.sh && sudo sh setup.sh
 ```
 That's it.
 
@@ -24,10 +24,10 @@ The installation script will:
 - Autostart RaspberryCast at boot (added to /etc/rc.local)
 - Reboot
 
-You can review the [install script](https://github.com/vincelwt/RaspberryCast/blob/master/setup.sh).
+You can review the [install script](https://github.com/kazuto28/RaspberryCast/blob/master/setup.sh).
 
 # Remote control (mobile devices)
-![The remote on Android](https://raw.githubusercontent.com/vincelwt/RaspberryCast/master/images/android.png)
+![The remote on Android](https://raw.githubusercontent.com/kazuto28/RaspberryCast/master/images/android.png)
 
 On any device connected to the same network as you Pi, you can visit the page:
 ```
@@ -39,10 +39,10 @@ You can also use the Android application (link to Playstore at the top of the pa
 
 ## Chrome & Firefox extension
 #### Extension options
-![alt tag](https://raw.githubusercontent.com/vincelwt/RaspberryCast/master/images/extension.png)
+![alt tag](https://raw.githubusercontent.com/kazuto28/RaspberryCast/master/images/extension.png)
 
 #### Right-click options
-![alt tag](https://raw.githubusercontent.com/vincelwt/RaspberryCast/master/images/rightclick.png)
+![alt tag](https://raw.githubusercontent.com/kazuto28/RaspberryCast/master/images/rightclick.png)
 
 You can configure RaspberryCast settings in the extension option page.
 
@@ -53,7 +53,7 @@ Works on Linux, Mac OS, and Windows (Python needed)
 **Download**
 
 ```
-wget https://raw.githubusercontent.com/vincelwt/RaspberryCast/master/rcast.py
+wget https://raw.githubusercontent.com/kazuto28/RaspberryCast/master/rcast.py
 ```
 
 **Usage**
@@ -78,12 +78,6 @@ Demo video with an Android (also works on iOS):
 Remove reference to RaspberryCast.sh in /etc/rc.local
 
 Delete the /home/pi/RaspberryCast/ folder.
-
-## Contribute
-
-If you enjoyed using RaspberryCast, and/or would like to support the development, please consider making a donation.
-
-[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XLQTUNFTN9FU8)
 
 ## License
 Code released under the MIT license. 

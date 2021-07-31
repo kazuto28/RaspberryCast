@@ -1,9 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import logging
 import os
 import sys
 import json
+import subprocess
 try:
     # this works in Python3
     from urllib.request import urlretrieve
@@ -13,7 +14,7 @@ except ImportError:
 from bottle import Bottle, SimpleTemplate, request, response, \
                    template, run, static_file
 from process import launchvideo, queuevideo, playlist, \
-                    setState, getState, setVolume
+                    setState, getState, setVolume, omx_cmd
 
 if len(sys.argv) > 1:
     config_file = sys.argv[1]
@@ -41,18 +42,10 @@ formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 root.addHandler(ch)
 
-try:
-    os.mkfifo("/tmp/cmd")
-except OSError as e:
-    # 17 means the file already exists.
-    if e.errno != 17:
-        raise
-
 if config["new_log"]:
-    os.system("sudo fbi -T 1 --noverbose -a  images/ready.jpg")
+    subprocess.Popen(["sudo", "fbi", "-T", "1", "--noverbose", "-a",  "images/ready.jpg"])
 
 setState("0")
-open('video.queue', 'w').close()  # Reset queue
 logger.info('Server successfully started!')
 
 app = Bottle()
@@ -171,27 +164,27 @@ def video():
     control = request.query['control']
     if control == "pause":
         logger.info('Command : pause')
-        os.system("echo -n p > /tmp/cmd &")
+        omx_cmd.put("p")
         return "1"
     elif control in ["stop", "next"]:
         logger.info('Command : stop video')
-        os.system("echo -n q > /tmp/cmd &")
+        omx_cmd.put("q")
         return "1"
     elif control == "right":
         logger.info('Command : forward')
-        os.system("echo -n $'\x1b\x5b\x43' > /tmp/cmd &")
+        omx_cmd.put("$'\x1b\x5b\x43'")
         return "1"
     elif control == "left":
         logger.info('Command : backward')
-        os.system("echo -n $'\x1b\x5b\x44' > /tmp/cmd &")
+        omx_cmd.put("$'\x1b\x5b\x44'")
         return "1"
     elif control == "longright":
         logger.info('Command : long forward')
-        os.system("echo -n $'\x1b\x5b\x41' > /tmp/cmd &")
+        omx_cmd.put("$'\x1b\x5b\x41'")
         return "1"
     elif control == "longleft":
         logger.info('Command : long backward')
-        os.system("echo -n $'\x1b\x5b\x42' > /tmp/cmd &")
+        omx_cmd.put("$'\x1b\x5b\x42'")
         return "1"
 
 
@@ -200,10 +193,10 @@ def sound():
     vol = request.query['vol']
     if vol == "more":
         logger.info('REMOTE: Command : Sound ++')
-        os.system("echo -n + > /tmp/cmd &")
+        omx_cmd.put("+")
     elif vol == "less":
         logger.info('REMOTE: Command : Sound --')
-        os.system("echo -n - > /tmp/cmd &")
+        omx_cmd.put("-")
     setVolume(vol)
     return "1"
 
@@ -212,15 +205,15 @@ def sound():
 def shutdown():
     time = request.query['time']
     if time == "cancel":
-        os.system("shutdown -c")
+        subprocess.Popen(["shutdown", "-c"])
         logger.info("Shutdown canceled.")
         return "1"
     else:
         try:
             time = int(time)
             if (time < 400 and time >= 0):
-                shutdown_command = "shutdown -h +" + str(time) + " &"
-                os.system(shutdown_command)
+                shutdown_command = ["shutdown", "-h", "+" + str(time)]
+                subprocess.Popen(shutdown_command)
                 logger.info("Shutdown should be successfully programmed")
                 return "1"
         except:
